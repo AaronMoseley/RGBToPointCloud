@@ -25,7 +25,11 @@ file(GLOB_RECURSE VOLTENGINE_SOURCE
         ${CMAKE_CURRENT_SOURCE_DIR}/../VoltEngine/source/*.cpp
 )
 
-add_library(VoltEngine ${VOLTENGINE_SOURCE})
+list(REMOVE_ITEM VOLTENGINE_SOURCE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../VoltEngine/source/main.cpp
+)
+
+add_library(VoltEngine OBJECT ${VOLTENGINE_SOURCE})
 
 file(GLOB_RECURSE PROJECT_SOURCES
     source/*.cpp
@@ -57,9 +61,15 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/glm
 )
 
+target_include_directories(${PROJECT_NAME}
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/tiny-gltf)
+
 target_include_directories(VoltEngine
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/glm
 )
+
+target_include_directories(VoltEngine
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/tiny-gltf)
 
 # ---------------------------
 # Include Directories
@@ -93,22 +103,26 @@ target_include_directories(VoltEngine PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/../VoltEngine/source
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE VoltEngine)
-
-# ---------------------------
-# Link Libraries
-# ---------------------------
-
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
+target_link_libraries(VoltEngine
+        PRIVATE
         Vulkan::Vulkan
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
 )
 
-target_link_libraries(VoltEngine
-        PRIVATE
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+        TINYGLTF3_ENABLE_FS
+)
+
+# ---------------------------
+# Link Libraries
+# ---------------------------
+
+target_link_libraries(${PROJECT_NAME} PRIVATE VoltEngine)
+
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE
         Vulkan::Vulkan
         Qt6::Core
         Qt6::Gui
@@ -135,3 +149,15 @@ endif()
 # Set startup project folder (Visual Studio)
 # ---------------------------
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND
+        ${Python3_EXECUTABLE}
+        ${CMAKE_SOURCE_DIR}/scripts/post_build.py
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        COMMENT "Running post-build script"
+)
