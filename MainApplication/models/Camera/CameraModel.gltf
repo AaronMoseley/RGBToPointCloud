@@ -7,41 +7,73 @@
 		{
 			"bufferView":0,
 			"componentType":5123,
-			"count":564,
+			"count":768,
 			"type":"SCALAR",
 			"min":[0
 			],
-			"max":[95
+			"max":[287
 			]
 		},
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":96,
+			"count":288,
 			"type":"VEC3",
 			"min":[-0.5,-0.300000012,-0.36500001
 			],
 			"max":[0.5,0.377000004,0.125
+			]
+		},
+		{
+			"bufferView":2,
+			"componentType":5126,
+			"count":288,
+			"type":"VEC3",
+			"min":[0,0,0
+			],
+			"max":[1,1,1
+			]
+		},
+		{
+			"bufferView":3,
+			"componentType":5126,
+			"count":288,
+			"type":"VEC3",
+			"min":[-1,-1,-1
+			],
+			"max":[1,1,1
 			]
 		}
 	],
 	"buffers":[
 		{
 			"uri":"CameraModel_data.bin",
-			"byteLength":2280,
+			"byteLength":11904,
 			"name":"main_buffer"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":1128,
+			"byteLength":1536,
 			"target":34963
 		},
 		{
 			"buffer":0,
-			"byteOffset":1128,
-			"byteLength":1152,
+			"byteOffset":1536,
+			"byteLength":3456,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteOffset":4992,
+			"byteLength":3456,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteOffset":8448,
+			"byteLength":3456,
 			"target":34962
 		}
 	],
@@ -56,12 +88,14 @@
 			"primitives":[
 				{
 					"attributes":{
-						"POSITION":1
+						"COLOR_0":2,
+						"POSITION":1,
+						"NORMAL":3
 					},
 					"indices":0
 				}
 			],
-			"name":"polyextrude7"
+			"name":"normal1"
 		}
 	],
 	"scenes":[

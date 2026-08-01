@@ -4,20 +4,21 @@ struct VSInputVertex
     [[vk::location(0)]] float4 position : POSITION; // Vertex position
     [[vk::location(1)]] float4 normal : NORMAL; // Vertex normal
     [[vk::location(2)]] float4 texCoord : TEXCOORD0; // Vertex texture coordinates
+    [[vk::location(3)]] float4 vertexColor : COLOR0; // Vertex texture coordinates
     
     //Instance attributes
-    [[vk::location(3)]] float4x4 model : TEXCOORD1; //4 locations for 4 * float4
-    [[vk::location(7)]] float4x4 modelMatrixInverted : TEXCOORD2; //4 locations for 4 * float4
+    [[vk::location(4)]] float4x4 model : TEXCOORD1; //4 locations for 4 * float4
+    [[vk::location(8)]] float4x4 modelMatrixInverted : TEXCOORD2; //4 locations for 4 * float4
     
-    [[vk::location(11)]] float4 scale : TEXCOORD8;
+    [[vk::location(12)]] float4 scale : TEXCOORD8;
     
-    [[vk::location(12)]] float4 ambient : COLOR3;
-    [[vk::location(13)]] float4 diffuse : COLOR4;
-    [[vk::location(14)]] float4 specular : COLOR5;
+    [[vk::location(13)]] float4 ambient : COLOR3;
+    [[vk::location(14)]] float4 diffuse : COLOR4;
+    [[vk::location(15)]] float4 specular : COLOR5;
 
-    [[vk::location(15)]] float4 opacityAndShininess : COLOR6;
+    [[vk::location(16)]] float4 opacityAndShininess : COLOR6;
 
-    [[vk::location(16)]] uint4 displayProperties : TEXCOORD7;
+    [[vk::location(17)]] uint4 displayProperties : TEXCOORD7;
 };
 
 //Vertex shader output to fragment shader input
@@ -93,10 +94,16 @@ VSOutput VSMain(VSInputVertex vertexInput)
     output.worldPosition = worldPos;
     
     float3x3 normalMatrix = (float3x3)transpose(vertexInput.modelMatrixInverted);
-    
+
+    float4 outputDiffuseColor = vertexInput.diffuse;
+    if(vertexInput.vertexColor.w > 0.5)
+    {
+        outputDiffuseColor = vertexInput.vertexColor;
+    }
+
     output.normal = float4(mul(normalMatrix, vertexInput.normal.xyz), 1.0);
     output.ambient = vertexInput.ambient;
-    output.diffuse = vertexInput.diffuse;
+    output.diffuse = outputDiffuseColor;
     output.specular = vertexInput.specular;
     output.opacityAndShininess = vertexInput.opacityAndShininess;
     output.displayProperties = vertexInput.displayProperties;
