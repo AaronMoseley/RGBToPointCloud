@@ -2,6 +2,10 @@
 #define POINTCLOUDAPP_CAMERAMANAGER_H
 
 #include "Objects/ObjectComponent.h"
+#include "Widgets/ImageSourceSettingsDialog.h"
+#include <filesystem>
+
+#include "Vulkan Interface/VulkanCommonFunctions.h"
 
 class ImageSourceManager : public ObjectComponent {
 public:
@@ -12,11 +16,12 @@ public:
 
 private:
 	void AddCameraManagementWidget();
-	void TriggerAddCameraDialog();
+	void TriggerImageSourceSettingsDialog(VulkanCommonFunctions::ObjectHandle cameraObjectHandle, bool deleteOnCancel);
 
 	void AddCamera();
 
-	std::vector<std::shared_ptr<RenderObject>> m_cameraObjects;
+	std::map<VulkanCommonFunctions::ObjectHandle, std::shared_ptr<RenderObject>> m_cameraObjects;
+	std::map<VulkanCommonFunctions::ObjectHandle, ImageSourceSettingsDialog::ImageSourceSettingsData> m_imageSettingsData;
 };
 
 

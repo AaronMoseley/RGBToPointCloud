@@ -1,8 +1,11 @@
 #include "ImageSourceManager.h"
+
+#include <qcoreapplication.h>
+
 #include "Components/Transform.h"
 #include "Components/GLTFModel.h"
 #include "Management/Scene.h"
-#include "Widgets/AddImageSourceDialog.h"
+#include "Widgets/ImageSourceSettingsDialog.h"
 
 void ImageSourceManager::Start()
 {
@@ -44,10 +47,10 @@ void ImageSourceManager::AddCamera()
 
 	gltfMesh->SetSourcePath("models/Camera/CameraModel.gltf");
 	gltfMesh->ReverseWindingOrder();
-	GetScene()->AddObject(newCameraModel);
+	VulkanCommonFunctions::ObjectHandle cameraHandle = GetScene()->AddObject(newCameraModel);
 
-	m_cameraObjects.push_back(newCameraModel);
-	TriggerAddCameraDialog();
+	m_cameraObjects[cameraHandle] = newCameraModel;
+	TriggerImageSourceSettingsDialog(cameraHandle, true);
 }
 
 void ImageSourceManager::AddCameraManagementWidget()
@@ -55,8 +58,25 @@ void ImageSourceManager::AddCameraManagementWidget()
 
 }
 
-void ImageSourceManager::TriggerAddCameraDialog()
+void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions::ObjectHandle cameraObjectHandle, bool deleteOnCancel)
 {
-	AddImageSourceDialog* dialog = new AddImageSourceDialog();
+	ImageSourceSettingsDialog* dialog = new ImageSourceSettingsDialog();
 	dialog->show();
+
+	while (dialog->isVisible())
+	{
+		QCoreApplication::processEvents();
+	}
+
+	if (dialog->GetSavePressed())
+	{
+		ImageSourceSettingsDialog::ImageSourceSettingsData imageSourceData;
+		dialog->LoadImageSourceData(imageSourceData);
+		m_imageSettingsData[cameraObjectHandle] = imageSourceData;
+	} else if (deleteOnCancel)
+	{
+		GetScene()->RemoveObject(cameraObjectHandle);
+		m_cameraObjects.erase(cameraObjectHandle);
+		m_imageSettingsData.erase(cameraObjectHandle);
+	}
 }
