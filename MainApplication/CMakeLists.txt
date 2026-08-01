@@ -44,6 +44,14 @@ file(GLOB_RECURSE PROJECT_HEADERS
 add_executable(${PROJECT_NAME}
     ${PROJECT_SOURCES}
     ${PROJECT_HEADERS}
+        source/Components/SetupScene.cpp
+        source/Components/SetupScene.h
+        source/Components/ImageSourceManager.cpp
+        source/Components/ImageSourceManager.h
+        source/Widgets/ImageSourceManagementWidget.cpp
+        source/Widgets/ImageSourceManagementWidget.h
+        source/Widgets/AddImageSourceDialog.cpp
+        source/Widgets/AddImageSourceDialog.h
 )
 
 # ---------------------------

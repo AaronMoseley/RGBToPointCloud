@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QVulkanInstance>
 
+#include "Components/ImageSourceManager.h"
+#include "Components/SetupScene.h"
 #include "Management/VoltEngine.h"
 
 bool DebugFilter(QVulkanInstance::DebugMessageSeverityFlags severity, QVulkanInstance::DebugMessageTypeFlags type, const void* message)
@@ -50,11 +52,11 @@ int main(int argc, char* argv[]) {
 
     std::shared_ptr<Transform> cameraTransform = cameraObject->AddComponent<Transform>();
     cameraTransform->SetPosition(glm::vec3(0.0f, 0.0f, 5.0f));
-    cameraTransform->SetRotation(glm::vec3(0.0f, -90.0f, 0.0f));
     cameraTransform->SetScale(glm::vec3(1.0f));
     cameraObject->AddComponent<Camera>();
     cameraObject->AddComponent<FirstPersonController>();
-    cameraObject->AddComponent<DemoBehavior>();
+    cameraObject->AddComponent<SetupScene>();
+    cameraObject->AddComponent<ImageSourceManager>();
     cameraObject->SetTag("Player");
     sceneManager->AddObject(cameraObject);
 

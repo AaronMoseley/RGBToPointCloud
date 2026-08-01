@@ -96,13 +96,15 @@ VSOutput VSMain(VSInputVertex vertexInput)
     float3x3 normalMatrix = (float3x3)transpose(vertexInput.modelMatrixInverted);
 
     float4 outputDiffuseColor = vertexInput.diffuse;
+    float4 outputAmbientColor = vertexInput.ambient;
     if(vertexInput.vertexColor.w > 0.5)
     {
         outputDiffuseColor = vertexInput.vertexColor;
+        outputAmbientColor = length(vertexInput.ambient) * vertexInput.vertexColor;
     }
 
     output.normal = float4(mul(normalMatrix, vertexInput.normal.xyz), 1.0);
-    output.ambient = vertexInput.ambient;
+    output.ambient = outputAmbientColor;
     output.diffuse = outputDiffuseColor;
     output.specular = vertexInput.specular;
     output.opacityAndShininess = vertexInput.opacityAndShininess;
