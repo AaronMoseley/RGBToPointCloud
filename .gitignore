@@ -9,3 +9,4 @@ build/
 ThirdPartyLibraries/VulkanSDK/
 ThirdPartyLibraries/Qt/
 *.png
+*sync-conflict*
