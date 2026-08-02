@@ -116,10 +116,28 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 
 # ---------------------------
+# Onnx
+# ---------------------------
+
+set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/onnxruntime-linux-x64-1.28.0")
+
+add_library(onnxruntime SHARED IMPORTED)
+
+set_target_properties(onnxruntime PROPERTIES
+        IMPORTED_LOCATION
+        "${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so"
+        INTERFACE_INCLUDE_DIRECTORIES
+        "${ONNXRUNTIME_ROOT}/include"
+)
+
+# ---------------------------
 # Link Libraries
 # ---------------------------
 
 target_link_libraries(${PROJECT_NAME} PRIVATE VoltEngine)
+
+
+target_link_libraries(${PROJECT_NAME} PRIVATE onnxruntime)
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE

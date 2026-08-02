@@ -49,18 +49,45 @@ void ImageSourceManager::AddCamera()
 	gltfMesh->ReverseWindingOrder();
 	VulkanCommonFunctions::ObjectHandle cameraHandle = GetScene()->AddObject(newCameraModel);
 
-	m_cameraObjects[cameraHandle] = newCameraModel;
-	TriggerImageSourceSettingsDialog(cameraHandle, true);
+	TriggerImageSourceSettingsDialog(cameraHandle);
 }
 
 void ImageSourceManager::AddCameraManagementWidget()
 {
+	m_imageSourceManagementWidget = new ImageSourceManagementWidget();
 
+	std::function<void(VulkanCommonFunctions::ObjectHandle)> editCallback = std::bind(&ImageSourceManager::TriggerImageSourceEditing, this, std::placeholders::_1);
+	std::function<void(VulkanCommonFunctions::ObjectHandle)> removeCallback = std::bind(&ImageSourceManager::TriggerImageSourceRemoval, this, std::placeholders::_1);
+
+	m_imageSourceManagementWidget->SetEditCallback(editCallback);
+	m_imageSourceManagementWidget->SetRemovalCallback(removeCallback);
+
+	GetWindowManager()->AddWidgetToMenu("ImageSourceManager", m_imageSourceManagementWidget);
 }
 
-void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions::ObjectHandle cameraObjectHandle, bool deleteOnCancel)
+void ImageSourceManager::TriggerImageSourceEditing(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
 {
-	ImageSourceSettingsDialog* dialog = new ImageSourceSettingsDialog();
+	if (m_imageSettingsData.contains(cameraObjectHandle) == false)
+	{
+		return;
+	}
+
+	TriggerImageSourceSettingsDialog(m_imageSettingsData[cameraObjectHandle]);
+}
+
+void ImageSourceManager::TriggerImageSourceRemoval(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
+{
+	m_imageSettingsData.erase(cameraObjectHandle);
+	GetScene()->RemoveObject(cameraObjectHandle);
+}
+
+void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
+{
+	std::shared_ptr<RenderObject> cameraObject = GetScene()->GetRenderObject(cameraObjectHandle);
+	std::shared_ptr<Transform> cameraTransform = cameraObject->GetComponent<Transform>();
+
+	std::string cameraName = "Camera_" + std::to_string(m_imageSettingsData.size());
+	ImageSourceSettingsDialog* dialog = new ImageSourceSettingsDialog(cameraName, cameraTransform->GetWorldPosition(), cameraTransform->GetRotation());
 	dialog->show();
 
 	while (dialog->isVisible())
@@ -72,11 +99,39 @@ void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions:
 	{
 		ImageSourceSettingsDialog::ImageSourceSettingsData imageSourceData;
 		dialog->LoadImageSourceData(imageSourceData);
+		imageSourceData.m_cameraObjectHandle = cameraObjectHandle;
+
+		cameraTransform->SetPosition(imageSourceData.m_position);
+		cameraTransform->SetRotation(imageSourceData.m_rotation);
+		m_imageSourceManagementWidget->AddImageSource(imageSourceData);
 		m_imageSettingsData[cameraObjectHandle] = imageSourceData;
-	} else if (deleteOnCancel)
+	} else
 	{
 		GetScene()->RemoveObject(cameraObjectHandle);
-		m_cameraObjects.erase(cameraObjectHandle);
 		m_imageSettingsData.erase(cameraObjectHandle);
+	}
+}
+
+void ImageSourceManager::TriggerImageSourceSettingsDialog(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData)
+{
+	ImageSourceSettingsDialog* dialog = new ImageSourceSettingsDialog(imageSourceData);
+	dialog->show();
+
+	std::shared_ptr<Transform> cameraTransform = GetScene()->GetRenderObject(imageSourceData.m_cameraObjectHandle)->GetComponent<Transform>();
+
+	while (dialog->isVisible())
+	{
+		QCoreApplication::processEvents();
+	}
+
+	if (dialog->GetSavePressed())
+	{
+		ImageSourceSettingsDialog::ImageSourceSettingsData newImageSourceData;
+		dialog->LoadImageSourceData(newImageSourceData);
+
+		cameraTransform->SetPosition(imageSourceData.m_position);
+		cameraTransform->SetRotation(imageSourceData.m_rotation);
+		m_imageSourceManagementWidget->ChangeCameraName(imageSourceData.m_cameraObjectHandle, newImageSourceData.m_cameraName);
+		m_imageSettingsData[imageSourceData.m_cameraObjectHandle] = newImageSourceData;
 	}
 }
