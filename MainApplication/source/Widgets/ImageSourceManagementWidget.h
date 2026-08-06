@@ -23,17 +23,23 @@ public:
 	void SetEditCallback(const std::function<void(VulkanCommonFunctions::ObjectHandle)>& callback) { m_editCallback = callback; }
 	void SetRemovalCallback(const std::function<void(VulkanCommonFunctions::ObjectHandle)>& callback) { m_removalCallback = callback; }
 
+	void SetProcessImagesCallback(const std::function<void()>& callback) { m_processImagesCallback = callback; }
+
 private:
 	void InitializeWidget();
 
 	void EditClicked(VulkanCommonFunctions::ObjectHandle cameraObjectHandle);
 	void RemoveClicked(VulkanCommonFunctions::ObjectHandle cameraObjectHandle);
 
+	void ProcessImagesClicked();
+
 	std::map<VulkanCommonFunctions::ObjectHandle, QHBoxLayout*> m_scrollAreaElements;
 	std::map<VulkanCommonFunctions::ObjectHandle, QLabel*> m_scrollAreaNameLabels;
 
-	std::function<void(VulkanCommonFunctions::ObjectHandle)> m_editCallback;
-	std::function<void(VulkanCommonFunctions::ObjectHandle)> m_removalCallback;
+	std::function<void(VulkanCommonFunctions::ObjectHandle)> m_editCallback = nullptr;
+	std::function<void(VulkanCommonFunctions::ObjectHandle)> m_removalCallback = nullptr;
+
+	std::function<void()> m_processImagesCallback = nullptr;
 
 	QVBoxLayout* m_scrollLayout = nullptr;
 };

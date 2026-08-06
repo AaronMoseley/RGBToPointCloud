@@ -6,6 +6,7 @@
 #include "Components/GLTFModel.h"
 #include "Management/Scene.h"
 #include "Widgets/ImageSourceSettingsDialog.h"
+#include "stb_image.h"
 
 void ImageSourceManager::Start()
 {
@@ -62,7 +63,154 @@ void ImageSourceManager::AddCameraManagementWidget()
 	m_imageSourceManagementWidget->SetEditCallback(editCallback);
 	m_imageSourceManagementWidget->SetRemovalCallback(removeCallback);
 
+	std::function<void()> processImagesCallback = std::bind(&ImageSourceManager::ProcessImages, this);
+
+	m_imageSourceManagementWidget->SetProcessImagesCallback(processImagesCallback);
+
 	GetWindowManager()->AddWidgetToMenu("ImageSourceManager", m_imageSourceManagementWidget);
+}
+
+void ImageSourceManager::InitializeOnnxSession()
+{
+	m_onnxEnvironment = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "inference");
+
+	Ort::SessionOptions sessionOptions;
+	sessionOptions.SetIntraOpNumThreads(1);
+	sessionOptions.SetGraphOptimizationLevel(
+		GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+	m_mlModelSession = std::make_unique<Ort::Session>(*m_onnxEnvironment, kMLModelPath.c_str(), sessionOptions);
+}
+
+void ImageSourceManager::ProcessImages()
+{
+	for (const auto&[objectHandle, imageSourceData] : m_imageSettingsData)
+	{
+		RGBImagePixelData pixelData;
+		bool validImage = ReadImage(imageSourceData, pixelData);
+
+		if (validImage == false || pixelData.size() == 0)
+		{
+			continue;
+		}
+
+		ImageDepthData depthData;
+		PredictDepthOfImage(pixelData, depthData);
+
+		CreatePointsFromDepthImage(imageSourceData, depthData);
+	}
+}
+
+bool ImageSourceManager::ReadImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, RGBImagePixelData& outImagePixels)
+{
+	int imageWidth, imageHeight, imageChannels;
+
+	stbi_uc* pixels = stbi_load(imageSourceData.m_imageSourcePath.c_str(),
+		&imageWidth, &imageHeight, &imageChannels, STBI_rgb);
+
+	if (!pixels)
+	{
+		return false;
+	}
+
+	size_t croppedHeight = (imageHeight / 16) * 16;
+	size_t croppedWidth = (imageWidth / 16) * 16;
+
+	size_t heightOffset = (imageHeight - croppedHeight) / 2;
+	size_t widthOffset = (imageWidth - croppedWidth) / 2;
+
+	outImagePixels.resize(croppedHeight);
+
+	for (size_t y = heightOffset; y < imageHeight - heightOffset; y++)
+	{
+		outImagePixels[y].resize(croppedWidth);
+
+		for (size_t x = widthOffset; x < imageWidth - widthOffset; x++)
+		{
+			size_t index = ((y * imageWidth) + x) * 3;
+
+			outImagePixels[y - heightOffset][x - widthOffset] =
+			{
+				pixels[index] / 255.0f,
+				pixels[index + 1] / 255.0f,
+				pixels[index + 2] / 255.0f
+			};
+		}
+	}
+
+	return true;
+}
+
+void ImageSourceManager::PredictDepthOfImage(const RGBImagePixelData& imagePixels, ImageDepthData& outDepthData)
+{
+	size_t imageHeight = imagePixels.size();
+	size_t imageWidth = imagePixels[0].size();
+
+	std::vector<float> inputTensor(3 * imageHeight * imageWidth);
+
+	for (size_t i = 0; i < imageHeight; i++)
+	{
+		size_t rowOffset = i * imageWidth;
+
+		for (size_t j = 0; j < imageWidth; j++)
+		{
+			size_t indexWithinChannel = rowOffset + j;
+
+			size_t redIndex = indexWithinChannel;
+			size_t greenIndex = (imageHeight * imageWidth) + indexWithinChannel;
+			size_t blueIndex = (2 * imageHeight * imageWidth) + indexWithinChannel;
+
+			inputTensor[redIndex] = imagePixels[i][j][0];
+			inputTensor[greenIndex] = imagePixels[i][j][1];
+			inputTensor[blueIndex] = imagePixels[i][j][2];
+		}
+	}
+
+	std::array<int64_t, 4> inputShape = { 1, 3, static_cast<int64_t>(imageHeight), static_cast<int64_t>(imageWidth) };
+
+	Ort::MemoryInfo memory_info =
+	Ort::MemoryInfo::CreateCpu(
+		OrtArenaAllocator,
+		OrtMemTypeDefault);
+
+	Ort::Value input_tensor =
+		Ort::Value::CreateTensor<float>(
+			memory_info,
+			inputTensor.data(),
+			inputTensor.size(),
+			inputShape.data(),
+			inputShape.size());
+
+	const char* input_names[] = { kMLModelInputName.c_str() };
+	const char* output_names[] = { kMLModelOutputName.c_str() };
+
+	auto outputs = m_mlModelSession->Run(
+		Ort::RunOptions{nullptr},
+		input_names,
+		&input_tensor,
+		1,
+		output_names,
+		1);
+
+	float* result = outputs[0].GetTensorMutableData<float>();
+
+	outDepthData.resize(imageHeight);
+	for (size_t y = 0; y < imageHeight; y++)
+	{
+		outDepthData[y].resize(imageWidth);
+
+		size_t rowOffset = y * imageWidth;
+
+		for (size_t x = 0; x < imageWidth; x++)
+		{
+			outDepthData[y][x] = result[rowOffset + x];
+		}
+	}
+}
+
+void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage)
+{
+
 }
 
 void ImageSourceManager::TriggerImageSourceEditing(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)

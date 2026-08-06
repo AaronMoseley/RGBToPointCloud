@@ -17,6 +17,7 @@ void ImageSourceManagementWidget::InitializeWidget()
 	mainLayout->addWidget(scrollArea);
 
 	QPushButton* generateCloudButton = new QPushButton("Process Images");
+	connect(generateCloudButton, &QPushButton::clicked, this, &ImageSourceManagementWidget::ProcessImagesClicked);
 	mainLayout->addWidget(generateCloudButton);
 	generateCloudButton->setFixedHeight(100);
 	m_scrollLayout->addStretch();
@@ -84,4 +85,14 @@ void ImageSourceManagementWidget::RemoveClicked(VulkanCommonFunctions::ObjectHan
 	{
 		m_removalCallback(cameraObjectHandle);
 	}
+}
+
+void ImageSourceManagementWidget::ProcessImagesClicked()
+{
+	if (m_processImagesCallback == nullptr)
+	{
+		return;
+	}
+
+	m_processImagesCallback();
 }

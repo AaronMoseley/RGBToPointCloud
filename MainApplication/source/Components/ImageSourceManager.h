@@ -1,6 +1,8 @@
 #ifndef POINTCLOUDAPP_CAMERAMANAGER_H
 #define POINTCLOUDAPP_CAMERAMANAGER_H
 
+#include <onnxruntime_cxx_api.h>
+
 #include "Objects/ObjectComponent.h"
 #include "Widgets/ImageSourceSettingsDialog.h"
 #include "Widgets/ImageSourceManagementWidget.h"
@@ -10,7 +12,13 @@
 
 class ImageSourceManager : public ObjectComponent {
 public:
-	ImageSourceManager() {}
+	using RGBImagePixelData = std::vector<std::vector<std::array<float, 3>>>;
+	using ImageDepthData = std::vector<std::vector<double>>;
+
+	ImageSourceManager()
+	{
+		InitializeOnnxSession();
+	}
 
 	void Start() override;
 	void Update(float deltaTime) override;
@@ -19,10 +27,25 @@ public:
 	void TriggerImageSourceRemoval(VulkanCommonFunctions::ObjectHandle cameraObjectHandle);
 
 private:
+	//need to be able to pick between multiple models
+	const std::filesystem::path kMLModelPath = "ml_models/IndoorModel.onnx";
+	const std::string kMLModelInputName = "input";
+	const std::string kMLModelOutputName = "output";
+
+	std::unique_ptr<Ort::Env> m_onnxEnvironment = nullptr;
+	std::unique_ptr<Ort::Session> m_mlModelSession = nullptr;
+
+	void InitializeOnnxSession();
+
 	void AddCameraManagementWidget();
 
 	void TriggerImageSourceSettingsDialog(VulkanCommonFunctions::ObjectHandle cameraObjectHandle);
 	void TriggerImageSourceSettingsDialog(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData);
+
+	void ProcessImages();
+	bool ReadImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, RGBImagePixelData& outImagePixels);
+	void PredictDepthOfImage(const RGBImagePixelData& imagePixels, ImageDepthData& outDepthData);
+	void CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage);
 
 	void AddCamera();
 

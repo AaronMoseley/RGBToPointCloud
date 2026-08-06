@@ -21,6 +21,7 @@ DIRECTORIES_TO_COPY = [
     os.path.join(PROJECT_ROOT, "models"),
     os.path.join(PROJECT_ROOT, "shaders"),
     os.path.join(PROJECT_ROOT, "textures"),
+    os.path.join(PROJECT_ROOT, "ml_models"),
 ]
 
 # Destination build directory
