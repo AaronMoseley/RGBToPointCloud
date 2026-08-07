@@ -31,6 +31,7 @@ private:
 	const std::filesystem::path kMLModelPath = "ml_models/IndoorModel.onnx";
 	const std::string kMLModelInputName = "input";
 	const std::string kMLModelOutputName = "output";
+	const float kPercentageOfPixelsToKeep = 0.05f;
 
 	std::unique_ptr<Ort::Env> m_onnxEnvironment = nullptr;
 	std::unique_ptr<Ort::Session> m_mlModelSession = nullptr;
@@ -45,7 +46,7 @@ private:
 	void ProcessImages();
 	bool ReadImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, RGBImagePixelData& outImagePixels);
 	void PredictDepthOfImage(const RGBImagePixelData& imagePixels, ImageDepthData& outDepthData);
-	void CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage);
+	void CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage, const RGBImagePixelData& imagePixels);
 
 	void AddCamera();
 

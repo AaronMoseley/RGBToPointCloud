@@ -29,7 +29,8 @@ list(REMOVE_ITEM VOLTENGINE_SOURCE
         ${CMAKE_CURRENT_SOURCE_DIR}/../VoltEngine/source/main.cpp
 )
 
-add_library(VoltEngine OBJECT ${VOLTENGINE_SOURCE})
+add_library(VoltEngine OBJECT ${VOLTENGINE_SOURCE}
+        ../VoltEngine/source/Components/Square.h)
 
 file(GLOB_RECURSE PROJECT_SOURCES
     source/*.cpp

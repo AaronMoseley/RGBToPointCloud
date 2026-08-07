@@ -27,19 +27,20 @@ void ImageSourceSettingsDialog::InitializeDialog()
 	QDoubleValidator* validator = new QDoubleValidator(0.01, 999.99, 2);
 	QDoubleValidator* positionValidator = new QDoubleValidator(-10000.0, 10000.0, 2);
 	QDoubleValidator* rotationValidator = new QDoubleValidator(0.0, 360.0, 2);
+	QDoubleValidator* fovValidator = new QDoubleValidator(0.01, 180.0, 2);
 
 	QHBoxLayout* verticalFOVLayout = new QHBoxLayout();
 	mainLayout->addLayout(verticalFOVLayout);
 	verticalFOVLayout->addWidget(new QLabel("Vertical FOV (Degrees): "));
 	m_verticalFOVLineEdit = new QLineEdit("90");
-	m_verticalFOVLineEdit->setValidator(validator);
+	m_verticalFOVLineEdit->setValidator(fovValidator);
 	verticalFOVLayout->addWidget(m_verticalFOVLineEdit);
 
 	QHBoxLayout* horizontalFOVLayout = new QHBoxLayout();
 	mainLayout->addLayout(horizontalFOVLayout);
 	horizontalFOVLayout->addWidget(new QLabel("Horizontal FOV (Degrees): "));
 	m_horizontalFOVLineEdit = new QLineEdit("90");
-	m_horizontalFOVLineEdit->setValidator(validator);
+	m_horizontalFOVLineEdit->setValidator(fovValidator);
 	horizontalFOVLayout->addWidget(m_horizontalFOVLineEdit);
 
 	QHBoxLayout* imageGlobalScaleLayout = new QHBoxLayout();

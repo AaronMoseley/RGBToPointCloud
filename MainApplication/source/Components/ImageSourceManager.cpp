@@ -3,6 +3,7 @@
 #include <qcoreapplication.h>
 
 #include "Components/Transform.h"
+#include "Components/Square.h"
 #include "Components/GLTFModel.h"
 #include "Management/Scene.h"
 #include "Widgets/ImageSourceSettingsDialog.h"
@@ -97,7 +98,7 @@ void ImageSourceManager::ProcessImages()
 		ImageDepthData depthData;
 		PredictDepthOfImage(pixelData, depthData);
 
-		CreatePointsFromDepthImage(imageSourceData, depthData);
+		CreatePointsFromDepthImage(imageSourceData, depthData, pixelData);
 	}
 }
 
@@ -203,14 +204,66 @@ void ImageSourceManager::PredictDepthOfImage(const RGBImagePixelData& imagePixel
 
 		for (size_t x = 0; x < imageWidth; x++)
 		{
-			outDepthData[y][x] = result[rowOffset + x];
+			outDepthData[y][x] = glm::exp(result[rowOffset + x]);
 		}
 	}
 }
 
-void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage)
+void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage, const RGBImagePixelData& imagePixels)
 {
+	size_t imageHeight = depthImage.size();
+	size_t imageWidth = depthImage[0].size();
 
+	float verticalAngle = ((180.0f - imageSourceData.m_verticalFOV) / 2.0f) - 90.0f;
+	float verticalAngleIncrementAmount = imageSourceData.m_verticalFOV / static_cast<float>(imageHeight);
+
+	float horizontalAngleIncrementAmount = imageSourceData.m_horizontalFOV / static_cast<float>(imageWidth);
+
+	std::shared_ptr<RenderObject> cameraObject = GetScene()->GetRenderObject(imageSourceData.m_cameraObjectHandle);
+	std::shared_ptr<Transform> cameraTransform = cameraObject->GetComponent<Transform>();
+
+	for (size_t y = 0; y < imageHeight; y++)
+	{
+		float horizontalAngle = ((180.0f - imageSourceData.m_horizontalFOV) / 2.0f) - 90.0f;
+
+		for (size_t x = 0; x < imageWidth; x++)
+		{
+			float random = ((double) rand() / (RAND_MAX));
+
+			if (random < kPercentageOfPixelsToKeep)
+			{
+				float currentDepth = depthImage[y][x] * imageSourceData.m_imageGlobalScale;
+
+				//sin(horizontal) = zOffset / depth
+				float zOffset = -glm::asin(glm::radians(std::abs(horizontalAngle))) * currentDepth;
+				glm::vec3 forwardOffset = cameraTransform->Forward() * zOffset;
+
+				//cos(horizontal) = xOffset / depth
+				float xOffset = -glm::acos(glm::radians(std::abs(horizontalAngle))) * currentDepth;
+				glm::vec3 rightOffset = cameraTransform->Right() * xOffset;
+
+				//cos(vertical) = yOffset / depth
+				float yOffset = -glm::acos(glm::radians(std::abs(verticalAngle))) * currentDepth;
+				glm::vec3 upOffset = cameraTransform->Up() * yOffset;
+
+				glm::vec3 pointPosition = imageSourceData.m_position + forwardOffset + rightOffset + upOffset;
+
+				std::shared_ptr<RenderObject> newPoint = std::make_shared<RenderObject>();
+				newPoint->SetMaterialName("GenericObjectMaterial");
+				std::shared_ptr<Transform> pointTransform = newPoint->AddComponent<Transform>();
+				pointTransform->SetPosition(pointPosition);
+				pointTransform->SetScale(glm::vec3(0.5f));
+				std::shared_ptr<Square> newPointMesh = newPoint->AddComponent<Square>();
+				newPointMesh->SetColor(glm::vec3(imagePixels[y][x][0], imagePixels[y][x][1], imagePixels[y][x][2]));
+				newPointMesh->SetLit(false);
+				GetScene()->AddObject(newPoint);
+			}
+
+			horizontalAngle += horizontalAngleIncrementAmount;
+		}
+
+		verticalAngle += verticalAngleIncrementAmount;
+	}
 }
 
 void ImageSourceManager::TriggerImageSourceEditing(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
