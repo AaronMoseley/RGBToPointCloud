@@ -38,7 +38,7 @@ def run_shell_script():
     print(f"Running {SHADER_COMPILATION_SCRIPT}")
 
     subprocess.run(
-        ["python3", str(SHADER_COMPILATION_SCRIPT)],
+        [sys.executable, str(SHADER_COMPILATION_SCRIPT)],
         check=True,
     )
 

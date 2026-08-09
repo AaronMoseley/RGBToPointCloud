@@ -119,7 +119,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 # Onnx
 # ---------------------------
 
-set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/onnxruntime-linux-x64-1.28.0")
+if(WIN32)
+    set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/onnxruntime-win-x64-1.28.0")
+else()
+    set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/onnxruntime-linux-x64-1.28.0")
+endif()
 
 add_library(onnxruntime SHARED IMPORTED)
 

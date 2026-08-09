@@ -29,11 +29,17 @@ def main():
 
         # Directory containing the shader
         shader_directory = os.path.dirname(shader_file)
-        vertexCompileCommand = "dxc -spirv -T vs_6_0 -E VSMain " + shader_file + " -Fo " + os.path.join(shader_directory, filename_no_extension + "Vertex.spv")
-        pixelCompileCommand = "dxc -spirv -T ps_6_0 -E PSMain " + shader_file + " -Fo " + os.path.join(shader_directory, filename_no_extension + "Pixel.spv")
+        vertexCompileCommand = [
+            "dxc", "-spirv", "-T", "vs_6_0", "-E", "VSMain",
+            shader_file, "-Fo", os.path.join(shader_directory, filename_no_extension + "Vertex.spv")
+        ]
+        pixelCompileCommand = [
+            "dxc", "-spirv", "-T", "ps_6_0", "-E", "PSMain",
+            shader_file, "-Fo", os.path.join(shader_directory, filename_no_extension + "Pixel.spv")
+        ]
 
-        subprocess.run(vertexCompileCommand.split(" "), check=True)
-        subprocess.run(pixelCompileCommand.split(" "), check=True)
+        subprocess.run(vertexCompileCommand, check=True)
+        subprocess.run(pixelCompileCommand, check=True)
 
 
 if __name__ == "__main__":
