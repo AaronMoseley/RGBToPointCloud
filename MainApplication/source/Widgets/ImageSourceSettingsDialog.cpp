@@ -1,6 +1,7 @@
 #include "ImageSourceSettingsDialog.h"
 
 #include <QPushButton>
+#include <sys/stat.h>
 
 void ImageSourceSettingsDialog::InitializeDialog()
 {
@@ -31,6 +32,21 @@ void ImageSourceSettingsDialog::InitializeDialog()
 
 	m_imageTypeButtonGroup = new QButtonGroup();
 	connect(m_imageTypeButtonGroup, &QButtonGroup::idClicked, this, &ImageSourceSettingsDialog::ImageTypeChanged);
+
+	QHBoxLayout* imageSettingLayout = new QHBoxLayout();
+	m_imageSettingButtonGroup = new QButtonGroup();
+	mainLayout->addLayout(imageSettingLayout);
+
+	QRadioButton* indoorButton = new QRadioButton("Indoor Image");
+	indoorButton->setChecked(true);
+	imageSettingLayout->addWidget(indoorButton);
+	m_imageSettingButtonGroup->addButton(indoorButton, static_cast<int>(ImageSetting::Indoor));
+	m_imageSettingButtons[ImageSetting::Indoor] = indoorButton;
+
+	QRadioButton* outdoorButton = new QRadioButton("Outdoor Image");
+	imageSettingLayout->addWidget(outdoorButton);
+	m_imageSettingButtonGroup->addButton(outdoorButton, static_cast<int>(ImageSetting::Outdoor));
+	m_imageSettingButtons[ImageSetting::Outdoor] = outdoorButton;
 
 	QHBoxLayout* imageTypeLayout = new QHBoxLayout();
 	mainLayout->addLayout(imageTypeLayout);
@@ -190,6 +206,7 @@ void ImageSourceSettingsDialog::LoadImageSourceData(ImageSourceSettingsData& out
 
 	outData.m_imageGlobalScale = std::stof(m_imageGlobalScaleLineEdit->text().toStdString());
 
+	outData.m_imageSetting = ImageSetting(m_imageSettingButtonGroup->checkedId());
 
 	glm::vec3 outputPosition =
 	{

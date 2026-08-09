@@ -24,12 +24,20 @@ public:
 		Perspective
 	};
 
+	enum ImageSetting
+	{
+		Unknown,
+		Indoor,
+		Outdoor
+	};
+
 	struct ImageSourceSettingsData
 	{
 		std::string m_cameraName;
 		std::filesystem::path m_imageSourcePath;
 
 		ImageType m_imageType = ImageType::None;
+		ImageSetting m_imageSetting = ImageSetting::Unknown;
 
 		float m_worldImageWidth;
 		float m_worldImageHeight;
@@ -78,6 +86,7 @@ public:
 		m_yawLineEdit->setText(std::to_string(cameraData.m_rotation.y).c_str());
 		m_rollLineEdit->setText(std::to_string(cameraData.m_rotation.z).c_str());
 
+		m_imageSettingButtons[cameraData.m_imageSetting]->setChecked(true);
 		m_imageTypeButtons[cameraData.m_imageType]->setChecked(true);
 		ImageTypeChanged(static_cast<int>(cameraData.m_imageType));
 	}
@@ -98,6 +107,7 @@ private:
 	bool m_savePressed = false;
 
 	QButtonGroup* m_imageTypeButtonGroup = nullptr;
+	QButtonGroup* m_imageSettingButtonGroup = nullptr;
 
 	QLineEdit* m_cameraNameLineEdit = nullptr;
 	QLineEdit* m_fileSourceLineEdit = nullptr;
@@ -119,6 +129,7 @@ private:
 	QLineEdit* m_rollLineEdit = nullptr;
 
 	std::map<ImageType, QRadioButton*> m_imageTypeButtons;
+	std::map<ImageSetting, QRadioButton*> m_imageSettingButtons;
 };
 
 

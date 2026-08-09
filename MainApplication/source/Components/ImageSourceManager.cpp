@@ -104,7 +104,28 @@ void ImageSourceManager::InitializeOnnxSession()
 	sessionOptions.SetGraphOptimizationLevel(
 		GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-	m_mlModelSession = std::make_unique<Ort::Session>(*m_onnxEnvironment, kMLModelPath.c_str(), sessionOptions);
+	m_mlModelSessionIndoor = std::make_unique<Ort::Session>(*m_onnxEnvironment, kMLModelPathIndoor.c_str(), sessionOptions);
+	m_mlModelSessionOutdoor = std::make_unique<Ort::Session>(*m_onnxEnvironment, kMLModelPathOutdoor.c_str(), sessionOptions);
+}
+
+void ImageSourceManager::RemovePointsRelatedToCamera(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
+{
+	std::shared_ptr<Transform> cameraTransform = GetScene()->GetRenderObject(cameraObjectHandle)->GetComponent<Transform>();
+
+	while (cameraTransform->GetChildCount() > 0)
+	{
+		std::shared_ptr<Transform> childTransform = cameraTransform->GetChild(0);
+		cameraTransform->RemoveChild(0);
+		VulkanCommonFunctions::ObjectHandle childHandle = childTransform->GetOwner()->GetObjectHandle();
+
+		m_objectsToRemoveMutex.lock();
+		m_objectsToRemove.push(childHandle);
+		m_objectsToRemoveMutex.unlock();
+	}
+
+	m_objectsToRemoveMutex.lock();
+	m_objectsToRemove.push(cameraObjectHandle);
+	m_objectsToRemoveMutex.unlock();
 }
 
 void ImageSourceManager::ProcessSingleImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSettings,
@@ -119,7 +140,7 @@ void ImageSourceManager::ProcessSingleImage(const ImageSourceSettingsDialog::Ima
 	}
 
 	ImageDepthData depthData;
-	PredictDepthOfImage(pixelData, depthData);
+	PredictDepthOfImage(pixelData, depthData, imageSettings.m_imageSetting);
 
 	CreatePointsFromDepthImage(imageSettings, depthData, pixelData, cameraTransform);
 
@@ -184,7 +205,7 @@ bool ImageSourceManager::ReadImage(const ImageSourceSettingsDialog::ImageSourceS
 	return true;
 }
 
-void ImageSourceManager::PredictDepthOfImage(const RGBImagePixelData& imagePixels, ImageDepthData& outDepthData)
+void ImageSourceManager::PredictDepthOfImage(const RGBImagePixelData& imagePixels, ImageDepthData& outDepthData, ImageSourceSettingsDialog::ImageSetting imageSetting)
 {
 	size_t imageHeight = imagePixels.size();
 	size_t imageWidth = imagePixels[0].size();
@@ -227,17 +248,35 @@ void ImageSourceManager::PredictDepthOfImage(const RGBImagePixelData& imagePixel
 	const char* input_names[] = { kMLModelInputName.c_str() };
 	const char* output_names[] = { kMLModelOutputName.c_str() };
 
-	m_onnxSessionMutex.lock();
+	std::vector<Ort::Value> outputs;
+	if (imageSetting == ImageSourceSettingsDialog::ImageSetting::Indoor)
+	{
+		m_indoorOnnxSessionMutex.lock();
+		outputs = m_mlModelSessionIndoor->Run(
+			Ort::RunOptions{nullptr},
+			input_names,
+			&input_tensor,
+			1,
+			output_names,
+			1);
+		m_indoorOnnxSessionMutex.unlock();
+	} else if (imageSetting == ImageSourceSettingsDialog::ImageSetting::Outdoor)
+	{
+		m_outdoorOnnxSessionMutex.lock();
+		outputs = m_mlModelSessionOutdoor->Run(
+			Ort::RunOptions{nullptr},
+			input_names,
+			&input_tensor,
+			1,
+			output_names,
+			1);
+		m_outdoorOnnxSessionMutex.unlock();
+	}
 
-	auto outputs = m_mlModelSession->Run(
-		Ort::RunOptions{nullptr},
-		input_names,
-		&input_tensor,
-		1,
-		output_names,
-		1);
-
-	m_onnxSessionMutex.unlock();
+	if (outputs.size() == 0)
+	{
+		return;
+	}
 
 	float* result = outputs[0].GetTensorMutableData<float>();
 
@@ -363,7 +402,8 @@ void ImageSourceManager::TriggerImageSourceRemoval(VulkanCommonFunctions::Object
 {
 	m_imageSettingsData.erase(cameraObjectHandle);
 
-	GetScene()->RemoveObject(cameraObjectHandle);
+	std::thread removalThread(&ImageSourceManager::RemovePointsRelatedToCamera, this, cameraObjectHandle);
+	removalThread.detach();
 }
 
 void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
