@@ -49,7 +49,10 @@ void ImageSourceManager::AddCamera()
 
 	gltfMesh->SetSourcePath("models/Camera/CameraModel.gltf");
 	gltfMesh->ReverseWindingOrder();
+
+	m_sceneMutex.lock();
 	VulkanCommonFunctions::ObjectHandle cameraHandle = GetScene()->AddObject(newCameraModel);
+	m_sceneMutex.unlock();
 
 	TriggerImageSourceSettingsDialog(cameraHandle);
 }
@@ -83,22 +86,28 @@ void ImageSourceManager::InitializeOnnxSession()
 	m_mlModelSession = std::make_unique<Ort::Session>(*m_onnxEnvironment, kMLModelPath.c_str(), sessionOptions);
 }
 
+void ImageSourceManager::ProcessSingleImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSettings)
+{
+	RGBImagePixelData pixelData;
+	bool validImage = ReadImage(imageSettings, pixelData);
+
+	if (validImage == false || pixelData.size() == 0)
+	{
+		return;;
+	}
+
+	ImageDepthData depthData;
+	PredictDepthOfImage(pixelData, depthData);
+
+	CreatePointsFromDepthImage(imageSettings, depthData, pixelData);
+}
+
 void ImageSourceManager::ProcessImages()
 {
 	for (const auto&[objectHandle, imageSourceData] : m_imageSettingsData)
 	{
-		RGBImagePixelData pixelData;
-		bool validImage = ReadImage(imageSourceData, pixelData);
-
-		if (validImage == false || pixelData.size() == 0)
-		{
-			continue;
-		}
-
-		ImageDepthData depthData;
-		PredictDepthOfImage(pixelData, depthData);
-
-		CreatePointsFromDepthImage(imageSourceData, depthData, pixelData);
+		std::thread processingThread(&ImageSourceManager::ProcessSingleImage, this, std::cref(imageSourceData));
+		processingThread.detach();
 	}
 }
 
@@ -189,6 +198,8 @@ void ImageSourceManager::PredictDepthOfImage(const RGBImagePixelData& imagePixel
 	const char* input_names[] = { kMLModelInputName.c_str() };
 	const char* output_names[] = { kMLModelOutputName.c_str() };
 
+	m_onnxSessionMutex.lock();
+
 	auto outputs = m_mlModelSession->Run(
 		Ort::RunOptions{nullptr},
 		input_names,
@@ -196,6 +207,8 @@ void ImageSourceManager::PredictDepthOfImage(const RGBImagePixelData& imagePixel
 		1,
 		output_names,
 		1);
+
+	m_onnxSessionMutex.unlock();
 
 	float* result = outputs[0].GetTensorMutableData<float>();
 
@@ -218,7 +231,10 @@ void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDia
 	size_t imageHeight = depthImage.size();
 	size_t imageWidth = depthImage[0].size();
 
+	m_sceneMutex.lock();
 	std::shared_ptr<RenderObject> cameraObject = GetScene()->GetRenderObject(imageSourceData.m_cameraObjectHandle);
+	m_sceneMutex.unlock();
+
 	std::shared_ptr<Transform> cameraTransform = cameraObject->GetComponent<Transform>();
 
 	for (size_t y = 0; y < imageHeight; y++)
@@ -266,7 +282,10 @@ void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDia
 			pointTransform->SetScale(glm::vec3(0.2f));
 			std::shared_ptr<Square> newPointMesh = newPoint->AddComponent<Square>();
 			newPointMesh->SetColor(glm::vec3(imagePixels[y][x][0], imagePixels[y][x][1], imagePixels[y][x][2]));
+
+			m_sceneMutex.lock();
 			GetScene()->AddObject(newPoint);
+			m_sceneMutex.unlock();
 		}
 	}
 }
@@ -284,12 +303,18 @@ void ImageSourceManager::TriggerImageSourceEditing(VulkanCommonFunctions::Object
 void ImageSourceManager::TriggerImageSourceRemoval(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
 {
 	m_imageSettingsData.erase(cameraObjectHandle);
+
+	m_sceneMutex.lock();
 	GetScene()->RemoveObject(cameraObjectHandle);
+	m_sceneMutex.unlock();
 }
 
 void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
 {
+	m_sceneMutex.lock();
 	std::shared_ptr<RenderObject> cameraObject = GetScene()->GetRenderObject(cameraObjectHandle);
+	m_sceneMutex.unlock();
+
 	std::shared_ptr<Transform> cameraTransform = cameraObject->GetComponent<Transform>();
 
 	std::string cameraName = "Camera_" + std::to_string(m_imageSettingsData.size());
@@ -313,7 +338,10 @@ void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions:
 		m_imageSettingsData[cameraObjectHandle] = imageSourceData;
 	} else
 	{
+		m_sceneMutex.lock();
 		GetScene()->RemoveObject(cameraObjectHandle);
+		m_sceneMutex.unlock();
+
 		m_imageSettingsData.erase(cameraObjectHandle);
 	}
 }
@@ -323,7 +351,9 @@ void ImageSourceManager::TriggerImageSourceSettingsDialog(const ImageSourceSetti
 	ImageSourceSettingsDialog* dialog = new ImageSourceSettingsDialog(imageSourceData);
 	dialog->show();
 
+	m_sceneMutex.lock();
 	std::shared_ptr<Transform> cameraTransform = GetScene()->GetRenderObject(imageSourceData.m_cameraObjectHandle)->GetComponent<Transform>();
+	m_sceneMutex.unlock();
 
 	while (dialog->isVisible())
 	{

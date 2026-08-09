@@ -7,6 +7,8 @@
 #include "Widgets/ImageSourceSettingsDialog.h"
 #include "Widgets/ImageSourceManagementWidget.h"
 #include <filesystem>
+#include <mutex>
+#include <thread>
 
 #include "Vulkan Interface/VulkanCommonFunctions.h"
 
@@ -28,13 +30,16 @@ public:
 
 private:
 	//need to be able to pick between multiple models
-	const std::filesystem::path kMLModelPath = "ml_models/OutdoorModel_KITTI.onnx";
+	const std::filesystem::path kMLModelPath = "ml_models/IndoorModel.onnx";
 	const std::string kMLModelInputName = "input";
 	const std::string kMLModelOutputName = "output";
 	const float kPercentageOfPixelsToKeep = 0.2f;
 
 	std::unique_ptr<Ort::Env> m_onnxEnvironment = nullptr;
 	std::unique_ptr<Ort::Session> m_mlModelSession = nullptr;
+
+	std::mutex m_onnxSessionMutex;
+	std::mutex m_sceneMutex;
 
 	void InitializeOnnxSession();
 
@@ -44,6 +49,7 @@ private:
 	void TriggerImageSourceSettingsDialog(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData);
 
 	void ProcessImages();
+	void ProcessSingleImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSettings);
 	bool ReadImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, RGBImagePixelData& outImagePixels);
 	void PredictDepthOfImage(const RGBImagePixelData& imagePixels, ImageDepthData& outDepthData);
 	void CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage, const RGBImagePixelData& imagePixels);
