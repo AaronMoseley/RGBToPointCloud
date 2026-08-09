@@ -25,6 +25,29 @@ void ImageSourceManager::Update(float deltaTime)
 	{
 		AddCamera();
 	}
+
+	if (m_activeThreads == 0 && m_imageSourceManagementWidget->IsProcessImagesButtonEnabled() == false)
+	{
+		m_imageSourceManagementWidget->SetProcessImagesButtonEnabled(true);
+	}
+
+	m_objectsToAddMutex.lock();
+	while (m_objectsToAdd.size() > 0)
+	{
+		std::shared_ptr<RenderObject> newPoint = m_objectsToAdd.front();
+		m_objectsToAdd.pop();
+		GetScene()->AddObject(newPoint);
+	}
+	m_objectsToAddMutex.unlock();
+
+	m_objectsToRemoveMutex.lock();
+	while (m_objectsToRemove.size() > 0)
+	{
+		VulkanCommonFunctions::ObjectHandle handle = m_objectsToRemove.front();
+		m_objectsToRemove.pop();
+		GetScene()->RemoveObject(handle);
+	}
+	m_objectsToRemoveMutex.unlock();
 }
 
 void ImageSourceManager::AddCamera()
@@ -50,9 +73,7 @@ void ImageSourceManager::AddCamera()
 	gltfMesh->SetSourcePath("models/Camera/CameraModel.gltf");
 	gltfMesh->ReverseWindingOrder();
 
-	m_sceneMutex.lock();
 	VulkanCommonFunctions::ObjectHandle cameraHandle = GetScene()->AddObject(newCameraModel);
-	m_sceneMutex.unlock();
 
 	TriggerImageSourceSettingsDialog(cameraHandle);
 }
@@ -86,7 +107,8 @@ void ImageSourceManager::InitializeOnnxSession()
 	m_mlModelSession = std::make_unique<Ort::Session>(*m_onnxEnvironment, kMLModelPath.c_str(), sessionOptions);
 }
 
-void ImageSourceManager::ProcessSingleImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSettings)
+void ImageSourceManager::ProcessSingleImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSettings,
+	std::shared_ptr<Transform> cameraTransform)
 {
 	RGBImagePixelData pixelData;
 	bool validImage = ReadImage(imageSettings, pixelData);
@@ -99,14 +121,21 @@ void ImageSourceManager::ProcessSingleImage(const ImageSourceSettingsDialog::Ima
 	ImageDepthData depthData;
 	PredictDepthOfImage(pixelData, depthData);
 
-	CreatePointsFromDepthImage(imageSettings, depthData, pixelData);
+	CreatePointsFromDepthImage(imageSettings, depthData, pixelData, cameraTransform);
+
+	m_activeThreads--;
 }
 
 void ImageSourceManager::ProcessImages()
 {
+	m_imageSourceManagementWidget->SetProcessImagesButtonEnabled(false);
+
 	for (const auto&[objectHandle, imageSourceData] : m_imageSettingsData)
 	{
-		std::thread processingThread(&ImageSourceManager::ProcessSingleImage, this, std::cref(imageSourceData));
+		std::shared_ptr<Transform> cameraTransform = GetScene()->GetRenderObject(objectHandle)->GetComponent<Transform>();
+
+		std::thread processingThread(&ImageSourceManager::ProcessSingleImage, this, std::cref(imageSourceData), cameraTransform);
+		m_activeThreads++;
 		processingThread.detach();
 	}
 }
@@ -226,16 +255,15 @@ void ImageSourceManager::PredictDepthOfImage(const RGBImagePixelData& imagePixel
 	}
 }
 
-void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage, const RGBImagePixelData& imagePixels)
+void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData,
+	const ImageDepthData& depthImage, const RGBImagePixelData& imagePixels,
+	std::shared_ptr<Transform> cameraTransform)
 {
 	size_t imageHeight = depthImage.size();
 	size_t imageWidth = depthImage[0].size();
 
-	m_sceneMutex.lock();
-	std::shared_ptr<RenderObject> cameraObject = GetScene()->GetRenderObject(imageSourceData.m_cameraObjectHandle);
-	m_sceneMutex.unlock();
-
-	std::shared_ptr<Transform> cameraTransform = cameraObject->GetComponent<Transform>();
+	size_t existingPointCount = cameraTransform->GetChildCount();
+	size_t currentChildIndex = 0;
 
 	for (size_t y = 0; y < imageHeight; y++)
 	{
@@ -267,7 +295,7 @@ void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDia
 			}
 			else
 			{
-				sourcePosition = cameraTransform->GetPosition();
+				sourcePosition = glm::vec3(0.0f);
 				sourcePosition += cameraTransform->Right() * (normalizedXCoordinate * (imageSourceData.m_worldImageWidth / 2.0f));
 				sourcePosition += cameraTransform->Up() * (normalizedYCoordinate * (imageSourceData.m_worldImageHeight / 2.0f));
 
@@ -276,17 +304,48 @@ void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDia
 
 			glm::vec3 pointPosition = sourcePosition + (cameraRay * currentDepth);
 
-			std::shared_ptr<RenderObject> newPoint = std::make_shared<RenderObject>();
-			std::shared_ptr<Transform> pointTransform = newPoint->AddComponent<Transform>();
+			std::shared_ptr<Transform> pointTransform = nullptr;
+			std::shared_ptr<Square> newPointMesh = nullptr;
+
+			if (currentChildIndex < existingPointCount)
+			{
+				pointTransform = cameraTransform->GetChild(currentChildIndex);
+				newPointMesh = pointTransform->GetOwner()->GetComponent<Square>();
+
+				currentChildIndex++;
+			} else
+			{
+				std::shared_ptr<RenderObject> newPoint = std::make_shared<RenderObject>();
+				pointTransform = newPoint->AddComponent<Transform>();
+				newPointMesh = newPoint->AddComponent<Square>();
+				pointTransform->SetParent(cameraTransform);
+
+				m_objectsToAddMutex.lock();
+				m_objectsToAdd.push(newPoint);
+				m_objectsToAddMutex.unlock();
+			}
+
 			pointTransform->SetPosition(pointPosition);
 			pointTransform->SetScale(glm::vec3(0.2f));
-			std::shared_ptr<Square> newPointMesh = newPoint->AddComponent<Square>();
 			newPointMesh->SetColor(glm::vec3(imagePixels[y][x][0], imagePixels[y][x][1], imagePixels[y][x][2]));
-
-			m_sceneMutex.lock();
-			GetScene()->AddObject(newPoint);
-			m_sceneMutex.unlock();
 		}
+	}
+
+	if (currentChildIndex >= existingPointCount)
+	{
+		return;
+	}
+
+	while (currentChildIndex < cameraTransform->GetChildCount())
+	{
+		std::shared_ptr<Transform> childToRemove = cameraTransform->GetChild(currentChildIndex);
+		cameraTransform->RemoveChild(currentChildIndex);
+
+		VulkanCommonFunctions::ObjectHandle pointHandle = childToRemove->GetOwner()->GetObjectHandle();
+
+		m_objectsToRemoveMutex.lock();
+		m_objectsToRemove.push(pointHandle);
+		m_objectsToRemoveMutex.unlock();
 	}
 }
 
@@ -304,16 +363,12 @@ void ImageSourceManager::TriggerImageSourceRemoval(VulkanCommonFunctions::Object
 {
 	m_imageSettingsData.erase(cameraObjectHandle);
 
-	m_sceneMutex.lock();
 	GetScene()->RemoveObject(cameraObjectHandle);
-	m_sceneMutex.unlock();
 }
 
 void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions::ObjectHandle cameraObjectHandle)
 {
-	m_sceneMutex.lock();
 	std::shared_ptr<RenderObject> cameraObject = GetScene()->GetRenderObject(cameraObjectHandle);
-	m_sceneMutex.unlock();
 
 	std::shared_ptr<Transform> cameraTransform = cameraObject->GetComponent<Transform>();
 
@@ -338,9 +393,7 @@ void ImageSourceManager::TriggerImageSourceSettingsDialog(VulkanCommonFunctions:
 		m_imageSettingsData[cameraObjectHandle] = imageSourceData;
 	} else
 	{
-		m_sceneMutex.lock();
 		GetScene()->RemoveObject(cameraObjectHandle);
-		m_sceneMutex.unlock();
 
 		m_imageSettingsData.erase(cameraObjectHandle);
 	}
@@ -351,9 +404,7 @@ void ImageSourceManager::TriggerImageSourceSettingsDialog(const ImageSourceSetti
 	ImageSourceSettingsDialog* dialog = new ImageSourceSettingsDialog(imageSourceData);
 	dialog->show();
 
-	m_sceneMutex.lock();
 	std::shared_ptr<Transform> cameraTransform = GetScene()->GetRenderObject(imageSourceData.m_cameraObjectHandle)->GetComponent<Transform>();
-	m_sceneMutex.unlock();
 
 	while (dialog->isVisible())
 	{
@@ -364,6 +415,7 @@ void ImageSourceManager::TriggerImageSourceSettingsDialog(const ImageSourceSetti
 	{
 		ImageSourceSettingsDialog::ImageSourceSettingsData newImageSourceData;
 		dialog->LoadImageSourceData(newImageSourceData);
+		newImageSourceData.m_cameraObjectHandle = imageSourceData.m_cameraObjectHandle;
 
 		cameraTransform->SetPosition(imageSourceData.m_position);
 		cameraTransform->SetRotation(imageSourceData.m_rotation);

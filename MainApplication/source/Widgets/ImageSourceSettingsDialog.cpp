@@ -39,6 +39,7 @@ void ImageSourceSettingsDialog::InitializeDialog()
 	imageTypeLayout->addLayout(perspectiveImageLayout);
 
 	QRadioButton* perspectiveButton = new QRadioButton("Perspective Image");
+	m_imageTypeButtons[ImageType::Perspective] = perspectiveButton;
 	perspectiveImageLayout->addWidget(perspectiveButton);
 	perspectiveButton->setChecked(true);
 	m_imageTypeButtonGroup->addButton(perspectiveButton, static_cast<int>(ImageType::Perspective));
@@ -61,6 +62,7 @@ void ImageSourceSettingsDialog::InitializeDialog()
 	imageTypeLayout->addLayout(orthographicImageLayout);
 
 	QRadioButton* orthographicButton = new QRadioButton("Orthographic Image");
+	m_imageTypeButtons[ImageType::Orthographic] = orthographicButton;
 	orthographicImageLayout->addWidget(orthographicButton);
 	orthographicButton->setChecked(false);
 	m_imageTypeButtonGroup->addButton(orthographicButton, static_cast<int>(ImageType::Orthographic));

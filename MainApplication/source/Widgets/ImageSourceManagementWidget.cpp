@@ -16,10 +16,10 @@ void ImageSourceManagementWidget::InitializeWidget()
 	m_scrollLayout = new QVBoxLayout(scrollContainer);
 	mainLayout->addWidget(scrollArea);
 
-	QPushButton* generateCloudButton = new QPushButton("Process Images");
-	connect(generateCloudButton, &QPushButton::clicked, this, &ImageSourceManagementWidget::ProcessImagesClicked);
-	mainLayout->addWidget(generateCloudButton);
-	generateCloudButton->setFixedHeight(100);
+	m_generateCloudButton = new QPushButton("Process Images");
+	connect(m_generateCloudButton, &QPushButton::clicked, this, &ImageSourceManagementWidget::ProcessImagesClicked);
+	mainLayout->addWidget(m_generateCloudButton);
+	m_generateCloudButton->setFixedHeight(100);
 	m_scrollLayout->addStretch();
 }
 

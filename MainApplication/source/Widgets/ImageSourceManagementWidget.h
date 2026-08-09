@@ -25,6 +25,9 @@ public:
 
 	void SetProcessImagesCallback(const std::function<void()>& callback) { m_processImagesCallback = callback; }
 
+	void SetProcessImagesButtonEnabled(bool enabled) const { m_generateCloudButton->setEnabled(enabled); }
+	bool IsProcessImagesButtonEnabled() const { return m_generateCloudButton->isEnabled(); }
+
 private:
 	void InitializeWidget();
 
@@ -40,6 +43,8 @@ private:
 	std::function<void(VulkanCommonFunctions::ObjectHandle)> m_removalCallback = nullptr;
 
 	std::function<void()> m_processImagesCallback = nullptr;
+
+	QPushButton* m_generateCloudButton = nullptr;
 
 	QVBoxLayout* m_scrollLayout = nullptr;
 };

@@ -9,8 +9,11 @@
 #include <filesystem>
 #include <mutex>
 #include <thread>
+#include <queue>
 
 #include "Vulkan Interface/VulkanCommonFunctions.h"
+
+class Transform;
 
 class ImageSourceManager : public ObjectComponent {
 public:
@@ -39,7 +42,8 @@ private:
 	std::unique_ptr<Ort::Session> m_mlModelSession = nullptr;
 
 	std::mutex m_onnxSessionMutex;
-	std::mutex m_sceneMutex;
+	std::mutex m_objectsToAddMutex;
+	std::mutex m_objectsToRemoveMutex;
 
 	void InitializeOnnxSession();
 
@@ -49,12 +53,20 @@ private:
 	void TriggerImageSourceSettingsDialog(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData);
 
 	void ProcessImages();
-	void ProcessSingleImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSettings);
+	void ProcessSingleImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSettings,
+		std::shared_ptr<Transform> cameraTransform);
 	bool ReadImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, RGBImagePixelData& outImagePixels);
 	void PredictDepthOfImage(const RGBImagePixelData& imagePixels, ImageDepthData& outDepthData);
-	void CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData, const ImageDepthData& depthImage, const RGBImagePixelData& imagePixels);
+	void CreatePointsFromDepthImage(const ImageSourceSettingsDialog::ImageSourceSettingsData& imageSourceData,
+		const ImageDepthData& depthImage, const RGBImagePixelData& imagePixels,
+		std::shared_ptr<Transform> cameraTransform);
 
 	void AddCamera();
+
+	std::queue<std::shared_ptr<RenderObject>> m_objectsToAdd;
+	std::queue<VulkanCommonFunctions::ObjectHandle> m_objectsToRemove;
+
+	std::atomic<size_t> m_activeThreads;
 
 	std::map<VulkanCommonFunctions::ObjectHandle, ImageSourceSettingsDialog::ImageSourceSettingsData> m_imageSettingsData;
 	ImageSourceManagementWidget* m_imageSourceManagementWidget = nullptr;

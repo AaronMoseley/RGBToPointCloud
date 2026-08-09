@@ -63,8 +63,12 @@ public:
 		m_cameraNameLineEdit->setText(cameraData.m_cameraName.c_str());
 		m_fileSourceLineEdit->setText(cameraData.m_imageSourcePath.c_str());
 		m_verticalFOVLineEdit->setText(std::to_string(cameraData.m_verticalFOV).c_str());
+
 		m_horizontalFOVLineEdit->setText(std::to_string(cameraData.m_horizontalFOV).c_str());
 		m_imageGlobalScaleLineEdit->setText(std::to_string(cameraData.m_imageGlobalScale).c_str());
+
+		m_imageWorldHeightLineEdit->setText(std::to_string(cameraData.m_worldImageHeight).c_str());
+		m_imageWorldWidthLineEdit->setText(std::to_string(cameraData.m_worldImageWidth).c_str());
 
 		m_xPositionLineEdit->setText(std::to_string(cameraData.m_position.x).c_str());
 		m_yPositionLineEdit->setText(std::to_string(cameraData.m_position.y).c_str());
@@ -73,6 +77,9 @@ public:
 		m_pitchLineEdit->setText(std::to_string(cameraData.m_rotation.x).c_str());
 		m_yawLineEdit->setText(std::to_string(cameraData.m_rotation.y).c_str());
 		m_rollLineEdit->setText(std::to_string(cameraData.m_rotation.z).c_str());
+
+		m_imageTypeButtons[cameraData.m_imageType]->setChecked(true);
+		ImageTypeChanged(static_cast<int>(cameraData.m_imageType));
 	}
 
 	void LoadImageSourceData(ImageSourceSettingsData& outData) const;
@@ -110,6 +117,8 @@ private:
 	QLineEdit* m_pitchLineEdit = nullptr;
 	QLineEdit* m_yawLineEdit = nullptr;
 	QLineEdit* m_rollLineEdit = nullptr;
+
+	std::map<ImageType, QRadioButton*> m_imageTypeButtons;
 };
 
 
