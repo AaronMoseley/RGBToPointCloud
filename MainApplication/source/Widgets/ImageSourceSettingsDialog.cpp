@@ -29,19 +29,57 @@ void ImageSourceSettingsDialog::InitializeDialog()
 	QDoubleValidator* rotationValidator = new QDoubleValidator(0.0, 360.0, 2);
 	QDoubleValidator* fovValidator = new QDoubleValidator(0.01, 180.0, 2);
 
+	m_imageTypeButtonGroup = new QButtonGroup();
+	connect(m_imageTypeButtonGroup, &QButtonGroup::idClicked, this, &ImageSourceSettingsDialog::ImageTypeChanged);
+
+	QHBoxLayout* imageTypeLayout = new QHBoxLayout();
+	mainLayout->addLayout(imageTypeLayout);
+
+	QVBoxLayout* perspectiveImageLayout = new QVBoxLayout();
+	imageTypeLayout->addLayout(perspectiveImageLayout);
+
+	QRadioButton* perspectiveButton = new QRadioButton("Perspective Image");
+	perspectiveImageLayout->addWidget(perspectiveButton);
+	perspectiveButton->setChecked(true);
+	m_imageTypeButtonGroup->addButton(perspectiveButton, static_cast<int>(ImageType::Perspective));
+
 	QHBoxLayout* verticalFOVLayout = new QHBoxLayout();
-	mainLayout->addLayout(verticalFOVLayout);
+	perspectiveImageLayout->addLayout(verticalFOVLayout);
 	verticalFOVLayout->addWidget(new QLabel("Vertical FOV (Degrees): "));
 	m_verticalFOVLineEdit = new QLineEdit("90");
 	m_verticalFOVLineEdit->setValidator(fovValidator);
 	verticalFOVLayout->addWidget(m_verticalFOVLineEdit);
 
 	QHBoxLayout* horizontalFOVLayout = new QHBoxLayout();
-	mainLayout->addLayout(horizontalFOVLayout);
+	perspectiveImageLayout->addLayout(horizontalFOVLayout);
 	horizontalFOVLayout->addWidget(new QLabel("Horizontal FOV (Degrees): "));
 	m_horizontalFOVLineEdit = new QLineEdit("90");
 	m_horizontalFOVLineEdit->setValidator(fovValidator);
 	horizontalFOVLayout->addWidget(m_horizontalFOVLineEdit);
+
+	QVBoxLayout* orthographicImageLayout = new QVBoxLayout();
+	imageTypeLayout->addLayout(orthographicImageLayout);
+
+	QRadioButton* orthographicButton = new QRadioButton("Orthographic Image");
+	orthographicImageLayout->addWidget(orthographicButton);
+	orthographicButton->setChecked(false);
+	m_imageTypeButtonGroup->addButton(orthographicButton, static_cast<int>(ImageType::Orthographic));
+
+	QHBoxLayout* imageWorldHeightLayout = new QHBoxLayout();
+	orthographicImageLayout->addLayout(imageWorldHeightLayout);
+	imageWorldHeightLayout->addWidget(new QLabel("Image World Height: "));
+	m_imageWorldHeightLineEdit = new QLineEdit("10.0");
+	m_imageWorldHeightLineEdit->setValidator(validator);
+	m_imageWorldHeightLineEdit->setEnabled(false);
+	imageWorldHeightLayout->addWidget(m_imageWorldHeightLineEdit);
+
+	QHBoxLayout* imageWorldWidthLayout = new QHBoxLayout();
+	orthographicImageLayout->addLayout(imageWorldWidthLayout);
+	imageWorldWidthLayout->addWidget(new QLabel("Image World Width: "));
+	m_imageWorldWidthLineEdit = new QLineEdit("10.0");
+	m_imageWorldWidthLineEdit->setValidator(validator);
+	m_imageWorldWidthLineEdit->setEnabled(false);
+	imageWorldWidthLayout->addWidget(m_imageWorldWidthLineEdit);
 
 	QHBoxLayout* imageGlobalScaleLayout = new QHBoxLayout();
 	mainLayout->addLayout(imageGlobalScaleLayout);
@@ -95,6 +133,29 @@ void ImageSourceSettingsDialog::InitializeDialog()
 	connect(saveButton, &QPushButton::clicked, this, &ImageSourceSettingsDialog::SavePressed);
 }
 
+void ImageSourceSettingsDialog::ImageTypeChanged(int imageTypeRaw)
+{
+	ImageType imageType = ImageType(imageTypeRaw);
+
+	switch (imageType)
+	{
+	case ImageType::Perspective:
+		m_imageWorldHeightLineEdit->setEnabled(false);
+		m_imageWorldWidthLineEdit->setEnabled(false);
+
+		m_verticalFOVLineEdit->setEnabled(true);
+		m_horizontalFOVLineEdit->setEnabled(true);
+		break;
+	case ImageType::Orthographic:
+		m_imageWorldHeightLineEdit->setEnabled(true);
+		m_imageWorldWidthLineEdit->setEnabled(true);
+
+		m_verticalFOVLineEdit->setEnabled(false);
+		m_horizontalFOVLineEdit->setEnabled(false);
+		break;
+	}
+}
+
 void ImageSourceSettingsDialog::SelectImageSourceFile()
 {
 	QString filePath = QFileDialog::getOpenFileName(
@@ -116,9 +177,17 @@ void ImageSourceSettingsDialog::LoadImageSourceData(ImageSourceSettingsData& out
 {
 	outData.m_cameraName = m_cameraNameLineEdit->text().toStdString();
 	outData.m_imageSourcePath = std::filesystem::path(m_fileSourceLineEdit->text().toStdWString());
-	outData.m_verticalFOV = std::stof(m_verticalFOVLineEdit->text().toStdString());
-	outData.m_horizontalFOV = std::stof(m_horizontalFOVLineEdit->text().toStdString());
+
+	outData.m_verticalFOV = m_verticalFOVLineEdit->text().toFloat();
+	outData.m_horizontalFOV = m_horizontalFOVLineEdit->text().toFloat();
+
+	outData.m_worldImageHeight = m_imageWorldHeightLineEdit->text().toFloat();
+	outData.m_worldImageWidth = m_imageWorldWidthLineEdit->text().toFloat();
+
+	outData.m_imageType = ImageType(m_imageTypeButtonGroup->checkedId());
+
 	outData.m_imageGlobalScale = std::stof(m_imageGlobalScaleLineEdit->text().toStdString());
+
 
 	glm::vec3 outputPosition =
 	{

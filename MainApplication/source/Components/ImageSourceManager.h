@@ -28,10 +28,10 @@ public:
 
 private:
 	//need to be able to pick between multiple models
-	const std::filesystem::path kMLModelPath = "ml_models/IndoorModel.onnx";
+	const std::filesystem::path kMLModelPath = "ml_models/OutdoorModel_KITTI.onnx";
 	const std::string kMLModelInputName = "input";
 	const std::string kMLModelOutputName = "output";
-	const float kPercentageOfPixelsToKeep = 0.05f;
+	const float kPercentageOfPixelsToKeep = 0.2f;
 
 	std::unique_ptr<Ort::Env> m_onnxEnvironment = nullptr;
 	std::unique_ptr<Ort::Session> m_mlModelSession = nullptr;

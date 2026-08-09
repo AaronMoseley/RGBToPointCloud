@@ -10,17 +10,33 @@
 #include "QLineEdit"
 #include "QFileDialog"
 #include "QDoubleValidator"
+#include "QButtonGroup"
+#include "QRadioButton"
 #include "Vulkan Interface/VulkanCommonFunctions.h"
 
 class ImageSourceSettingsDialog : public QWidget {
 	Q_OBJECT
 public:
+	enum ImageType
+	{
+		None,
+		Orthographic,
+		Perspective
+	};
+
 	struct ImageSourceSettingsData
 	{
 		std::string m_cameraName;
 		std::filesystem::path m_imageSourcePath;
+
+		ImageType m_imageType = ImageType::None;
+
+		float m_worldImageWidth;
+		float m_worldImageHeight;
+
 		float m_horizontalFOV;
 		float m_verticalFOV;
+
 		float m_imageGlobalScale;
 		VulkanCommonFunctions::ObjectHandle m_cameraObjectHandle;
 
@@ -70,12 +86,21 @@ private:
 	void SavePressed();
 	void CancelPressed();
 
+	void ImageTypeChanged(int imageTypeRaw);
+
 	bool m_savePressed = false;
+
+	QButtonGroup* m_imageTypeButtonGroup = nullptr;
 
 	QLineEdit* m_cameraNameLineEdit = nullptr;
 	QLineEdit* m_fileSourceLineEdit = nullptr;
+
+	QLineEdit* m_imageWorldHeightLineEdit = nullptr;
+	QLineEdit* m_imageWorldWidthLineEdit = nullptr;
+
 	QLineEdit* m_verticalFOVLineEdit = nullptr;
 	QLineEdit* m_horizontalFOVLineEdit = nullptr;
+
 	QLineEdit* m_imageGlobalScaleLineEdit = nullptr;
 
 	QLineEdit* m_xPositionLineEdit = nullptr;

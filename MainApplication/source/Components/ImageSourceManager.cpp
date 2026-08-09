@@ -122,15 +122,19 @@ bool ImageSourceManager::ReadImage(const ImageSourceSettingsDialog::ImageSourceS
 
 	outImagePixels.resize(croppedHeight);
 
-	for (size_t y = heightOffset; y < imageHeight - heightOffset; y++)
+	for (size_t y = 0; y < croppedHeight; y++)
 	{
+		size_t sourceY = y + heightOffset;
+
 		outImagePixels[y].resize(croppedWidth);
 
-		for (size_t x = widthOffset; x < imageWidth - widthOffset; x++)
+		for (size_t x = 0; x < croppedWidth; x++)
 		{
-			size_t index = ((y * imageWidth) + x) * 3;
+			size_t sourceX = x + widthOffset;
 
-			outImagePixels[y - heightOffset][x - widthOffset] =
+			size_t index = ((sourceY * imageWidth) + sourceX) * 3;
+
+			outImagePixels[y][x] =
 			{
 				pixels[index] / 255.0f,
 				pixels[index + 1] / 255.0f,
@@ -214,55 +218,56 @@ void ImageSourceManager::CreatePointsFromDepthImage(const ImageSourceSettingsDia
 	size_t imageHeight = depthImage.size();
 	size_t imageWidth = depthImage[0].size();
 
-	float verticalAngle = ((180.0f - imageSourceData.m_verticalFOV) / 2.0f) - 90.0f;
-	float verticalAngleIncrementAmount = imageSourceData.m_verticalFOV / static_cast<float>(imageHeight);
-
-	float horizontalAngleIncrementAmount = imageSourceData.m_horizontalFOV / static_cast<float>(imageWidth);
-
 	std::shared_ptr<RenderObject> cameraObject = GetScene()->GetRenderObject(imageSourceData.m_cameraObjectHandle);
 	std::shared_ptr<Transform> cameraTransform = cameraObject->GetComponent<Transform>();
 
 	for (size_t y = 0; y < imageHeight; y++)
 	{
-		float horizontalAngle = ((180.0f - imageSourceData.m_horizontalFOV) / 2.0f) - 90.0f;
+		float normalizedYCoordinate = 1.0f - (((static_cast<float>(y) + 0.5f) / imageHeight) * 2.0f);
 
 		for (size_t x = 0; x < imageWidth; x++)
 		{
 			float random = ((double) rand() / (RAND_MAX));
 
-			if (random < kPercentageOfPixelsToKeep)
+			if (random > kPercentageOfPixelsToKeep)
 			{
-				float currentDepth = depthImage[y][x] * imageSourceData.m_imageGlobalScale;
-
-				//sin(horizontal) = zOffset / depth
-				float zOffset = -glm::asin(glm::radians(std::abs(horizontalAngle))) * currentDepth;
-				glm::vec3 forwardOffset = cameraTransform->Forward() * zOffset;
-
-				//cos(horizontal) = xOffset / depth
-				float xOffset = -glm::acos(glm::radians(std::abs(horizontalAngle))) * currentDepth;
-				glm::vec3 rightOffset = cameraTransform->Right() * xOffset;
-
-				//cos(vertical) = yOffset / depth
-				float yOffset = -glm::acos(glm::radians(std::abs(verticalAngle))) * currentDepth;
-				glm::vec3 upOffset = cameraTransform->Up() * yOffset;
-
-				glm::vec3 pointPosition = imageSourceData.m_position + forwardOffset + rightOffset + upOffset;
-
-				std::shared_ptr<RenderObject> newPoint = std::make_shared<RenderObject>();
-				newPoint->SetMaterialName("GenericObjectMaterial");
-				std::shared_ptr<Transform> pointTransform = newPoint->AddComponent<Transform>();
-				pointTransform->SetPosition(pointPosition);
-				pointTransform->SetScale(glm::vec3(0.5f));
-				std::shared_ptr<Square> newPointMesh = newPoint->AddComponent<Square>();
-				newPointMesh->SetColor(glm::vec3(imagePixels[y][x][0], imagePixels[y][x][1], imagePixels[y][x][2]));
-				newPointMesh->SetLit(false);
-				GetScene()->AddObject(newPoint);
+				continue;
 			}
 
-			horizontalAngle += horizontalAngleIncrementAmount;
-		}
+			float currentDepth = depthImage[y][x] * imageSourceData.m_imageGlobalScale;
+			float normalizedXCoordinate = ((static_cast<float>(x) + 0.5f) / imageWidth) * 2.0f - 1.0f;
 
-		verticalAngle += verticalAngleIncrementAmount;
+			glm::vec3 cameraRay;
+			glm::vec3 sourcePosition;
+
+			if (imageSourceData.m_imageType == ImageSourceSettingsDialog::ImageType::Perspective)
+			{
+				cameraRay = cameraTransform->Forward() +
+					(cameraTransform->Right() * (normalizedXCoordinate * glm::tan(glm::radians(imageSourceData.m_horizontalFOV) * 0.5f))) +
+					(cameraTransform->Up() * (normalizedYCoordinate * glm::tan(glm::radians(imageSourceData.m_verticalFOV) * 0.5f)));
+				cameraRay = glm::normalize(cameraRay);
+
+				sourcePosition = cameraTransform->GetPosition();
+			}
+			else
+			{
+				sourcePosition = cameraTransform->GetPosition();
+				sourcePosition += cameraTransform->Right() * (normalizedXCoordinate * (imageSourceData.m_worldImageWidth / 2.0f));
+				sourcePosition += cameraTransform->Up() * (normalizedYCoordinate * (imageSourceData.m_worldImageHeight / 2.0f));
+
+				cameraRay = cameraTransform->Forward();
+			}
+
+			glm::vec3 pointPosition = sourcePosition + (cameraRay * currentDepth);
+
+			std::shared_ptr<RenderObject> newPoint = std::make_shared<RenderObject>();
+			std::shared_ptr<Transform> pointTransform = newPoint->AddComponent<Transform>();
+			pointTransform->SetPosition(pointPosition);
+			pointTransform->SetScale(glm::vec3(0.2f));
+			std::shared_ptr<Square> newPointMesh = newPoint->AddComponent<Square>();
+			newPointMesh->SetColor(glm::vec3(imagePixels[y][x][0], imagePixels[y][x][1], imagePixels[y][x][2]));
+			GetScene()->AddObject(newPoint);
+		}
 	}
 }
 
