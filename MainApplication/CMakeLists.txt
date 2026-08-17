@@ -134,6 +134,11 @@ set_target_properties(onnxruntime PROPERTIES
         "${ONNXRUNTIME_ROOT}/include"
 )
 
+add_subdirectory(
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/LAStools/LASlib/src
+        ${CMAKE_CURRENT_BINARY_DIR}/LASlib
+)
+
 # ---------------------------
 # Link Libraries
 # ---------------------------
@@ -150,6 +155,8 @@ target_link_libraries(${PROJECT_NAME}
         Qt6::Gui
         Qt6::Widgets
 )
+
+target_link_libraries(${PROJECT_NAME} PRIVATE LASlib)
 
 # ---------------------------
 # Windows-specific settings
