@@ -173,8 +173,8 @@ bool ImageSourceManager::ReadImage(const ImageSourceSettingsDialog::ImageSourceS
 		return false;
 	}
 
-	size_t croppedHeight = (imageHeight / 16) * 16;
-	size_t croppedWidth = (imageWidth / 16) * 16;
+	size_t croppedHeight = (imageHeight / 32) * 32;
+	size_t croppedWidth = (imageWidth / 32) * 32;
 
 	size_t heightOffset = (imageHeight - croppedHeight) / 2;
 	size_t widthOffset = (imageWidth - croppedWidth) / 2;

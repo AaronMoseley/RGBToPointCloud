@@ -32,7 +32,6 @@ public:
 	void TriggerImageSourceRemoval(VulkanCommonFunctions::ObjectHandle cameraObjectHandle);
 
 private:
-	//need to be able to pick between multiple models
 	const std::filesystem::path kMLModelPathIndoor = "ml_models/IndoorModel.onnx";
 	const std::filesystem::path kMLModelPathOutdoor = "ml_models/OutdoorModel_KITTI.onnx";
 	const std::string kMLModelInputName = "input";
