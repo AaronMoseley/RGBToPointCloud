@@ -127,7 +127,6 @@ void ImageSourceManager::ExportLAS(std::string filePath)
 	}
 
 	LASpoint point;
-
 	point.init(&writer->quantizer,
 		header.point_data_format,
 		header.point_data_record_length,
