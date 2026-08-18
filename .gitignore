@@ -7,6 +7,6 @@ build/
 .vs/
 *.png
 *sync-conflict*
-*/onnxruntime.pdb
+onnxruntime.pdb
 ThirdPartyLibraries/Qt
 ThirdPartyLibraries/VulkanSDK
