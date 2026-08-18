@@ -20,6 +20,12 @@ void ImageSourceManagementWidget::InitializeWidget()
 	connect(m_generateCloudButton, &QPushButton::clicked, this, &ImageSourceManagementWidget::ProcessImagesClicked);
 	mainLayout->addWidget(m_generateCloudButton);
 	m_generateCloudButton->setFixedHeight(100);
+
+	m_exportLASButton = new QPushButton("Export to LAS");
+	connect(m_exportLASButton, &QPushButton::clicked, this, &ImageSourceManagementWidget::ProcessLASExportClicked);
+	mainLayout->addWidget(m_exportLASButton);
+	m_exportLASButton->setFixedHeight(100);
+
 	m_scrollLayout->addStretch();
 }
 
@@ -95,4 +101,26 @@ void ImageSourceManagementWidget::ProcessImagesClicked()
 	}
 
 	m_processImagesCallback();
+}
+
+void ImageSourceManagementWidget::ProcessLASExportClicked()
+{
+	QString filePath = QFileDialog::getSaveFileName(
+		this,
+		"Save File",
+		QDir::homePath(),                // Initial directory
+		"LAS Files (*.las)"
+	);
+
+	if (filePath.isEmpty())
+	{
+		return;
+	}
+
+	if (m_exportLASCallback == nullptr)
+	{
+		return;
+	}
+
+	m_exportLASCallback(filePath.toStdString());
 }

@@ -2,6 +2,10 @@
 
 #include <qcoreapplication.h>
 
+#include "lasdefinitions.hpp"
+#include "laspoint.hpp"
+#include "laswriter.hpp"
+
 #include "Components/Transform.h"
 #include "Components/Square.h"
 #include "Components/GLTFModel.h"
@@ -28,7 +32,7 @@ void ImageSourceManager::Update(float deltaTime)
 
 	if (m_activeThreads == 0 && m_imageSourceManagementWidget->IsProcessImagesButtonEnabled() == false)
 	{
-		m_imageSourceManagementWidget->SetProcessImagesButtonEnabled(true);
+		m_imageSourceManagementWidget->SetButtonsEnabled(true);
 	}
 
 	m_objectsToAddMutex.lock();
@@ -48,6 +52,131 @@ void ImageSourceManager::Update(float deltaTime)
 		GetScene()->RemoveObject(handle);
 	}
 	m_objectsToRemoveMutex.unlock();
+}
+
+void ImageSourceManager::ExportLAS(std::string filePath)
+{
+	size_t totalPointCount = 0;
+	glm::vec3 fileOffset = {0.0f, 0.0f, 0.0f};
+
+	for (const auto& [cameraHandle, imageSettings] : m_imageSettingsData)
+	{
+		std::shared_ptr<RenderObject> cameraObject = GetScene()->GetRenderObject(cameraHandle);
+
+		if (totalPointCount == 0)
+		{
+			fileOffset = cameraObject->GetComponent<Transform>()->GetWorldPosition();
+		}
+
+		totalPointCount += cameraObject->GetComponent<Transform>()->GetChildCount();
+	}
+
+	if (totalPointCount == 0)
+	{
+		m_activeThreads--;
+		return;
+	}
+
+	LASheader header;
+
+	header.version_major = 1;
+	header.version_minor = 4;
+	header.point_data_format = 7;
+	header.point_data_record_length = 36;
+	header.header_size = 375;
+	header.offset_to_point_data = 375;
+
+	header.x_scale_factor = 0.001;
+	header.y_scale_factor = 0.001;
+	header.z_scale_factor = 0.001;
+
+	header.x_offset = fileOffset.x;
+	header.y_offset = fileOffset.y;
+	header.z_offset = fileOffset.z;
+
+	header.number_of_variable_length_records = 0;
+	header.user_data_in_header_size = 0;
+	header.user_data_after_header_size = 0;
+
+	std::time_t now = std::time(nullptr);
+	std::tm* local = std::localtime(&now);
+
+	header.file_creation_day = static_cast<uint16_t>(local->tm_yday + 1);
+	header.file_creation_year = static_cast<uint16_t>(local->tm_year + 1900);
+
+	std::strncpy(
+	header.system_identifier,
+	"RGBToPointCloud",
+	sizeof(header.system_identifier));
+
+	std::strncpy(
+		header.generating_software,
+		"RGBToPointCloud 1.0",
+		sizeof(header.generating_software));
+
+	LASwriteOpener opener;
+	opener.set_file_name(filePath.c_str());
+
+	LASwriter* writer = opener.open(&header);
+
+	if (writer == nullptr)
+	{
+		qDebug() << "Could not open laslib writer";
+		m_activeThreads--;
+		return;
+	}
+
+	LASpoint point;
+
+	point.init(&writer->quantizer,
+		header.point_data_format,
+		header.point_data_record_length,
+		&header);
+
+	std::array<uint16_t, 3> rgbValues = {0, 0, 0};
+
+	for (const auto& [cameraHandle, imageSettings] : m_imageSettingsData)
+	{
+		std::shared_ptr<Transform> cameraTransform = GetScene()->GetRenderObject(cameraHandle)->GetComponent<Transform>();
+		size_t childCount = cameraTransform->GetChildCount();
+
+		for (size_t i = 0; i < childCount; i++)
+		{
+			std::shared_ptr<Transform> pointTransform = cameraTransform->GetChild(i);
+			std::shared_ptr<PointMeshRenderer> pointMesh = pointTransform->GetOwner()->GetComponent<PointMeshRenderer>();
+
+			if (pointMesh == nullptr)
+			{
+				continue;
+			}
+
+			point.set_x(pointTransform->GetWorldPosition().x);
+			point.set_y(pointTransform->GetWorldPosition().y);
+			point.set_z(pointTransform->GetWorldPosition().z);
+
+			rgbValues[0] = static_cast<uint16_t>(pointMesh->GetColor().r * 65535.0f);
+			rgbValues[1] = static_cast<uint16_t>(pointMesh->GetColor().g * 65535.0f);
+			rgbValues[2] = static_cast<uint16_t>(pointMesh->GetColor().b * 65535.0f);
+
+			point.set_RGB(rgbValues.data());
+
+			writer->write_point(&point);
+			writer->update_inventory(&point);
+		}
+	}
+
+	writer->update_header(&header, true);
+	writer->close();
+
+	m_activeThreads--;
+}
+
+void ImageSourceManager::TriggerExportLAS(std::string filePath)
+{
+	m_imageSourceManagementWidget->SetButtonsEnabled(false);
+	m_activeThreads++;
+	std::thread exportThread(&ImageSourceManager::ExportLAS, this, filePath);
+	exportThread.detach();
 }
 
 void ImageSourceManager::AddCamera()
@@ -84,9 +213,11 @@ void ImageSourceManager::AddCameraManagementWidget()
 
 	std::function<void(VulkanCommonFunctions::ObjectHandle)> editCallback = std::bind(&ImageSourceManager::TriggerImageSourceEditing, this, std::placeholders::_1);
 	std::function<void(VulkanCommonFunctions::ObjectHandle)> removeCallback = std::bind(&ImageSourceManager::TriggerImageSourceRemoval, this, std::placeholders::_1);
+	std::function<void(std::string)> exportCallback = std::bind(&ImageSourceManager::TriggerExportLAS, this, std::placeholders::_1);
 
 	m_imageSourceManagementWidget->SetEditCallback(editCallback);
 	m_imageSourceManagementWidget->SetRemovalCallback(removeCallback);
+	m_imageSourceManagementWidget->SetLASExportCallback(exportCallback);
 
 	std::function<void()> processImagesCallback = std::bind(&ImageSourceManager::ProcessImages, this);
 
@@ -149,7 +280,7 @@ void ImageSourceManager::ProcessSingleImage(const ImageSourceSettingsDialog::Ima
 
 void ImageSourceManager::ProcessImages()
 {
-	m_imageSourceManagementWidget->SetProcessImagesButtonEnabled(false);
+	m_imageSourceManagementWidget->SetButtonsEnabled(false);
 
 	for (const auto&[objectHandle, imageSourceData] : m_imageSettingsData)
 	{

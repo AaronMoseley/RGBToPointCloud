@@ -67,6 +67,9 @@ private:
 
 	void AddCamera();
 
+	void TriggerExportLAS(std::string filePath);
+	void ExportLAS(std::string filePath);
+
 	std::queue<std::shared_ptr<RenderObject>> m_objectsToAdd;
 	std::queue<VulkanCommonFunctions::ObjectHandle> m_objectsToRemove;
 

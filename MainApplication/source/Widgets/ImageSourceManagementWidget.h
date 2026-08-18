@@ -24,9 +24,15 @@ public:
 	void SetRemovalCallback(const std::function<void(VulkanCommonFunctions::ObjectHandle)>& callback) { m_removalCallback = callback; }
 
 	void SetProcessImagesCallback(const std::function<void()>& callback) { m_processImagesCallback = callback; }
+	void SetLASExportCallback(const std::function<void(std::string)>& callback) { m_exportLASCallback = callback; }
 
-	void SetProcessImagesButtonEnabled(bool enabled) const { m_generateCloudButton->setEnabled(enabled); }
-	bool IsProcessImagesButtonEnabled() const { return m_generateCloudButton->isEnabled(); }
+	void SetButtonsEnabled(bool enabled) const
+	{
+		m_generateCloudButton->setEnabled(enabled);
+		m_exportLASButton->setEnabled(enabled);
+	}
+
+	bool IsProcessImagesButtonEnabled() const { return m_generateCloudButton->isEnabled() && m_exportLASButton->isEnabled(); }
 
 private:
 	void InitializeWidget();
@@ -35,6 +41,7 @@ private:
 	void RemoveClicked(VulkanCommonFunctions::ObjectHandle cameraObjectHandle);
 
 	void ProcessImagesClicked();
+	void ProcessLASExportClicked();
 
 	std::map<VulkanCommonFunctions::ObjectHandle, QHBoxLayout*> m_scrollAreaElements;
 	std::map<VulkanCommonFunctions::ObjectHandle, QLabel*> m_scrollAreaNameLabels;
@@ -43,8 +50,10 @@ private:
 	std::function<void(VulkanCommonFunctions::ObjectHandle)> m_removalCallback = nullptr;
 
 	std::function<void()> m_processImagesCallback = nullptr;
+	std::function<void(const std::string&)> m_exportLASCallback = nullptr;
 
 	QPushButton* m_generateCloudButton = nullptr;
+	QPushButton* m_exportLASButton = nullptr;
 
 	QVBoxLayout* m_scrollLayout = nullptr;
 };
