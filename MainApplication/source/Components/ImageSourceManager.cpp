@@ -174,6 +174,7 @@ void ImageSourceManager::TriggerExportLAS(std::string filePath)
 {
 	m_imageSourceManagementWidget->SetButtonsEnabled(false);
 	m_activeThreads++;
+
 	std::thread exportThread(&ImageSourceManager::ExportLAS, this, filePath);
 	exportThread.detach();
 }
