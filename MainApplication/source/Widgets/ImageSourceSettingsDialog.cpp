@@ -5,6 +5,9 @@
 
 void ImageSourceSettingsDialog::InitializeDialog()
 {
+	setWindowFlags(Qt::Dialog);
+	setWindowModality(Qt::ApplicationModal);
+
 	QVBoxLayout* mainLayout = new QVBoxLayout();
 	setLayout(mainLayout);
 
