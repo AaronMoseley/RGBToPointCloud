@@ -121,18 +121,26 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 
 if(WIN32)
     set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/onnxruntime-win-x64-1.28.0")
+
+    add_library(onnxruntime SHARED IMPORTED)
+
+    set_target_properties(onnxruntime PROPERTIES
+        IMPORTED_IMPLIB "${ONNXRUNTIME_ROOT}/lib/onnxruntime.lib"
+        IMPORTED_LOCATION "${ONNXRUNTIME_ROOT}/lib/onnxruntime.dll"
+        INTERFACE_INCLUDE_DIRECTORIES "${ONNXRUNTIME_ROOT}/include"
+    )
 else()
     set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/onnxruntime-linux-x64-1.28.0")
-endif()
 
-add_library(onnxruntime SHARED IMPORTED)
+    add_library(onnxruntime SHARED IMPORTED)
 
-set_target_properties(onnxruntime PROPERTIES
+    set_target_properties(onnxruntime PROPERTIES
         IMPORTED_LOCATION
         "${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so"
         INTERFACE_INCLUDE_DIRECTORIES
         "${ONNXRUNTIME_ROOT}/include"
-)
+    )
+endif()
 
 add_subdirectory(
         ${CMAKE_CURRENT_SOURCE_DIR}/../ThirdPartyLibraries/LAStools/LASlib/src

@@ -69,7 +69,7 @@ public:
 	{
 		InitializeDialog();
 		m_cameraNameLineEdit->setText(cameraData.m_cameraName.c_str());
-		m_fileSourceLineEdit->setText(cameraData.m_imageSourcePath.c_str());
+		m_fileSourceLineEdit->setText(cameraData.m_imageSourcePath.string().c_str());
 		m_verticalFOVLineEdit->setText(std::to_string(cameraData.m_verticalFOV).c_str());
 
 		m_horizontalFOVLineEdit->setText(std::to_string(cameraData.m_horizontalFOV).c_str());

@@ -295,7 +295,7 @@ bool ImageSourceManager::ReadImage(const ImageSourceSettingsDialog::ImageSourceS
 {
 	int imageWidth, imageHeight, imageChannels;
 
-	stbi_uc* pixels = stbi_load(imageSourceData.m_imageSourcePath.c_str(),
+	stbi_uc* pixels = stbi_load(imageSourceData.m_imageSourcePath.string().c_str(),
 		&imageWidth, &imageHeight, &imageChannels, STBI_rgb);
 
 	if (!pixels)
